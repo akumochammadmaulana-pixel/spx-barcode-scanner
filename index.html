@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#102a43">
-  <title>Bandung Kopo DC STO</title>
+  <title>SPX Barcode Scanner</title>
   <style>
     :root { --navy:#102a43; --orange:#ee4d2d; --bg:#f3f6fa; --border:#dbe3ed; --text:#172b4d; --muted:#64748b; }
     * { box-sizing:border-box }
@@ -190,23 +190,22 @@
       return;
     }
 
-    // Post message hanya ke origin aplikasi Google Apps Script.
-    // window.opener biasanya adalah tab aplikasi yang membuka scanner.
+    // Kirim ke konteks pembuka. Apps Script dapat berjalan di origin script.google.com
+    // atau googleusercontent.com, jadi targetOrigin spesifik bisa membuat pesan dibuang.
     let sentToOpener = false;
     try {
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({
           type:'SPX_SCANNED_SN',
           scannedSN:scannedSN
-        }, 'https://script.google.com');
+        }, '*');
         sentToOpener = true;
       }
     } catch (e) {
       console.warn('postMessage ke opener gagal:', e);
     }
 
-    // Fallback: arahkan tab scanner ke URL kembali dengan scannedSN.
-    // Ini tidak mempertahankan state SPA, jadi hanya digunakan bila opener tidak ada.
+    // Fallback: arahkan tab scanner ke URL kembali dengan scannedSN bila tidak ada opener.
     if (!sentToOpener && returnUrl) {
       returnUrl.searchParams.set('scannedSN', scannedSN);
       returnUrl.searchParams.set('scannerReturn', '1');
