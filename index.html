@@ -190,22 +190,23 @@
       return;
     }
 
-    // Kirim ke konteks pembuka. Apps Script dapat berjalan di origin script.google.com
-    // atau googleusercontent.com, jadi targetOrigin spesifik bisa membuat pesan dibuang.
+    // Post message hanya ke origin aplikasi Google Apps Script.
+    // window.opener biasanya adalah tab aplikasi yang membuka scanner.
     let sentToOpener = false;
     try {
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({
           type:'SPX_SCANNED_SN',
           scannedSN:scannedSN
-        }, '*');
+        }, 'https://script.google.com');
         sentToOpener = true;
       }
     } catch (e) {
       console.warn('postMessage ke opener gagal:', e);
     }
 
-    // Fallback: arahkan tab scanner ke URL kembali dengan scannedSN bila tidak ada opener.
+    // Fallback: arahkan tab scanner ke URL kembali dengan scannedSN.
+    // Ini tidak mempertahankan state SPA, jadi hanya digunakan bila opener tidak ada.
     if (!sentToOpener && returnUrl) {
       returnUrl.searchParams.set('scannedSN', scannedSN);
       returnUrl.searchParams.set('scannerReturn', '1');
