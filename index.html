@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SPX Barcode Scanner</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f1f5f9;color:#0f172a}
+header{background:#f97316;color:#fff;padding:18px 16px}h1{font-size:21px;margin:0 0 5px}header p{font-size:13px;margin:0}
+main{max-width:560px;margin:auto;padding:14px}.card{background:#fff;border-radius:14px;padding:15px;margin-bottom:13px;box-shadow:0 2px 8px #0000000c}
+video{display:block;width:100%;max-height:58vh;min-height:230px;background:#111;border-radius:10px;object-fit:cover}
+button{border:0;border-radius:9px;padding:12px 14px;font-weight:700;font-size:14px;cursor:pointer}
+.primary{background:#f97316;color:#fff}.secondary{background:#e2e8f0;color:#0f172a}.success{background:#16a34a;color:#fff}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.row button{flex:1}
+#status{font-size:14px;line-height:1.5;margin-bottom:10px;overflow-wrap:anywhere}.sn{font-size:20px;font-weight:700;overflow-wrap:anywhere;background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:12px;min-height:48px}
+.small{font-size:12px;color:#64748b;line-height:1.5}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>📦 SPX Barcode Scanner</h1><p>Pemindai barcode/QR di halaman HTTPS terpisah</p></header>
+<main>
+<section class="card">
+<div id="status">Tekan “Mulai scan”, lalu izinkan akses kamera.</div>
+<video id="video" muted playsinline></video>
+<div class="row">
+<button id="start" class="primary">Mulai scan</button>
+<button id="stop" class="secondary">Tutup kamera</button>
+</div>
+</section>
+<section class="card">
+<strong>SN terbaca</strong>
+<div id="result" class="sn" style="margin-top:9px">Belum ada hasil</div>
+<div class="row">
+<button id="rescan" class="secondary">Scan ulang</button>
+<button id="return" class="success">Kirim SN ke aplikasi</button>
+</div>
+<p class="small">Jika aplikasi SPX dibuka dari tombol scanner, SN akan dikirim kembali ke aplikasi. Jika tidak, kamu bisa menyalin SN secara manual.</p>
+</section>
+</main>
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+let reader = null;
+let controls = null;
+let scanned = '';
+const params = new URLSearchParams(location.search);
+const returnUrl = params.get('return') || '';
+function status(t){$('status').textContent=t;}
+function stop(){
+  try { if(controls && controls.stop) controls.stop(); } catch(e){}
+  controls=null;
+  try { if(reader && reader.reset) reader.reset(); } catch(e){}
+  const v=$('video');
+  if(v.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;}
+}
+async function start(){
+  stop();
+  scanned='';
+  $('result').textContent='Belum ada hasil';
+  if(!window.ZXing || !window.ZXing.BrowserMultiFormatReader){
+    status('Library scanner gagal dimuat. Periksa koneksi internet lalu muat ulang halaman.');
+    return;
+  }
+  try{
+    reader=new ZXing.BrowserMultiFormatReader();
+    status('Meminta izin kamera...');
+    controls=await reader.decodeFromVideoDevice(undefined,$('video'),(result,err,c)=>{
+      if(result && !scanned){
+        scanned=String(result.getText ? result.getText() : result.text || '').trim();
+        if(!scanned)return;
+        $('result').textContent=scanned;
+        status('Barcode berhasil dibaca. Tekan “Kirim SN ke aplikasi”.');
+        try{if(c && c.stop)c.stop();}catch(e){}
+        controls=null;
+      }
+      if(err && !(err instanceof ZXing.NotFoundException)){
+        console.warn('Scanner:',err);
+      }
+    });
+    status('Kamera aktif. Arahkan barcode/QR ke dalam kamera.');
+  }catch(e){
+    status('Gagal membuka kamera ['+(e.name||'Error')+']: '+(e.message||e)+'. Buka halaman ini langsung di Chrome dan izinkan Camera.');
+  }
+}
+function sendBack(){
+  if(!scanned){status('Belum ada SN yang terbaca. Scan barcode terlebih dahulu.');return;}
+  if(!returnUrl){status('SN terbaca: '+scanned+'. Link kembali belum tersedia; salin SN secara manual.');return;}
+  try{
+    const u=new URL(returnUrl);
+    u.searchParams.set('scannedSN',scanned);
+    location.href=u.toString();
+  }catch(e){status('URL kembali tidak valid. SN: '+scanned);}
+}
+$('start').addEventListener('click',start);
+$('rescan').addEventListener('click',start);
+$('stop').addEventListener('click',()=>{stop();status('Kamera ditutup.');});
+$('return').addEventListener('click',sendBack);
+window.addEventListener('pagehide',stop);
+})();
+</script>
+</body>
+</html>
